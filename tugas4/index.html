@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Server Client</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Simple HTTP File Server</h1>
+        
+        <div class="card">
+            <h2>Upload File</h2>
+            <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+                <input type="file" name="fileToUpload" id="fileToUpload" required>
+                <button type="submit">Upload</button>
+            </form>
+            <div id="uploadStatus"></div>
+        </div>
+
+        <div class="card">
+            <div id="file-list-container">
+                <p>Memuat daftar file...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadFileList() {
+            try {
+                const response = await fetch('/files');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const html = await response.text();
+                document.getElementById('file-list-container').innerHTML = html;
+                addDeleteEventListeners();
+            } catch (error) {
+                console.error('Gagal memuat daftar file:', error);
+                document.getElementById('file-list-container').innerHTML = '<p style="color: red;">Gagal terhubung ke server.</p>';
+            }
+        }
+
+        async function deleteFile(filename) {
+            if (!confirm(`Apakah Anda yakin ingin menghapus file "${filename}"?`)) {
+                return;
+            }
+            try {
+                const response = await fetch(`/${filename}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    alert('File berhasil dihapus.');
+                    loadFileList();
+                } else {
+                    const errorText = await response.text();
+                    alert(`Gagal menghapus file: ${errorText}`);
+                }
+            } catch (error) {
+                console.error('Error saat menghapus file:', error);
+                alert('Terjadi kesalahan koneksi saat mencoba menghapus file.');
+            }
+        }
+        
+        function addDeleteEventListeners() {
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const filename = button.getAttribute('data-filename');
+                    deleteFile(filename);
+                });
+            });
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.textContent = 'Mengupload...';
+            statusDiv.style.color = 'blue';
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok || response.status === 302) {
+                     statusDiv.textContent = 'Upload berhasil!';
+                     statusDiv.style.color = 'green';
+                     this.reset();
+                     loadFileList();
+                } else {
+                    throw new Error('Upload failed');
+                }
+            })
+            .catch(error => {
+                statusDiv.textContent = 'Upload gagal.';
+                statusDiv.style.color = 'red';
+                console.error('Upload error:', error);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', loadFileList);
+    </script>
+</body>
+</html>

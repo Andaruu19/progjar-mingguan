@@ -1,6 +1,7 @@
 from socket import *
 import socket
 import sys
+import logging  # 1. Impor modul logging
 from concurrent.futures import ThreadPoolExecutor
 from http import HttpServer
 
@@ -41,12 +42,15 @@ def ProcessTheClient(connection, address):
 
         full_request = headers_data + body_data
         
+        # Di sini, `server_thread_pool_http.py` hanya menyerahkan request
+        # ke `http.py` tanpa tahu isinya.
         hasil = httpserver.proses(full_request)
         
         connection.sendall(hasil)
     
     except Exception as e:
-        print(f"Error processing client {address}: {e}", file=sys.stderr)
+        # 4. Catat error jika terjadi masalah saat menangani koneksi
+        logging.error(f"Error saat memproses client {address}: {e}")
     
     finally:
         connection.close()
@@ -59,17 +63,28 @@ def Server():
     server_address = ('0.0.0.0', 8885)
     my_socket.bind(server_address)
     my_socket.listen(1)
-    print(f"Server berjalan di http://localhost:{server_address[1]}")
+    # 3. Ganti print() dengan logging.info()
+    logging.info(f"Server (Thread Pool) berjalan di http://localhost:{server_address[1]}")
 
     with ThreadPoolExecutor(20) as executor:
         while True:
             try:
                 connection, client_address = my_socket.accept()
+                # 4. Catat setiap koneksi yang masuk
+                logging.info(f"Koneksi diterima dari {client_address}")
                 executor.submit(ProcessTheClient, connection, client_address)
             except KeyboardInterrupt:
-                print("\nServer dihentikan.")
+                # 4. Catat saat server dihentikan
+                logging.info("\nServer dihentikan oleh pengguna.")
                 break
     my_socket.close()
 
 if __name__ == "__main__":
+    # 2. Konfigurasikan logging
+    logging.basicConfig(
+        level=logging.INFO,
+        # Format ini akan menampilkan waktu, nama thread, level log, dan pesan
+        format='%(asctime)s - [%(threadName)s] - %(levelname)s - %(message)s',
+        stream=sys.stdout,
+    )
     Server()
